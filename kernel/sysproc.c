@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
 uint64
 sys_exit(void)
 {
@@ -74,7 +75,31 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 va;
+  int num;
+  uint64 user_mask_addr;
+
+  // Gọi trực tiếp không kiểm tra giá trị trả về
+  argaddr(0, &va);
+  argint(1, &num);
+  argaddr(2, &user_mask_addr);
+
+  if (num > 64) // tối đa 64 pages
+    return -1;
+
+  uint64 mask = 0;
+
+  for (int i = 0; i < num; i++) {
+    pte_t *pte = walk(myproc()->pagetable, va + i * PGSIZE, 0);
+    if (pte && (*pte & PTE_V) && (*pte & PTE_A)) {
+      mask |= (1ULL << i);
+      *pte &= ~PTE_A; // clear bit A
+    }
+  }
+
+  if (copyout(myproc()->pagetable, user_mask_addr, (char *)&mask, sizeof(mask)) < 0)
+    return -1;
+
   return 0;
 }
 #endif
